@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 type Message = {
   role: 'user' | 'ai';
   content: string;
+  agent?: 'legalQA' | 'document' | 'research';
 };
 
 export default function Home() {
@@ -14,10 +15,16 @@ export default function Home() {
   const [error, setError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto scroll to bottom when messages change
+  // Auto-scroll to bottom when new messages appear
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [messages, loading]);
+
+  // Utility to clean bold markdown formatting (**text**)
+  const cleanMarkdown = (text: string) => text.replace(/\*\*(.*?)\*\*/g, '$1');
 
   const handleAsk = async () => {
     if (!input.trim()) return;
@@ -35,19 +42,40 @@ export default function Home() {
         body: JSON.stringify({ input: input.trim() }),
       });
 
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error();
 
       const data = await res.json();
-      const aiMessage: Message = { role: 'ai', content: data.output || 'No response from AI.' };
+      const aiMessage: Message = {
+        role: 'ai',
+        content: cleanMarkdown(data.output || 'No response from AI.'),
+        agent: data.agent,
+      };
 
       setMessages((prev) => [...prev, aiMessage]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setError("Sorry, I couldn't process your request. Please try again later.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderAgentLabel = (agent?: string) => {
+    if (!agent) return null;
+    let label = '';
+    switch (agent) {
+      case 'legalQA':
+        label = 'Legal Advice';
+        break;
+      case 'document':
+        label = 'Document Help';
+        break;
+      case 'research':
+        label = 'Research';
+        break;
+      default:
+        label = 'AI';
+    }
+    return <div className="text-xs text-gray-500 mb-1 select-none italic">{label}</div>;
   };
 
   return (
@@ -74,7 +102,7 @@ export default function Home() {
             >
               <div
                 className={`
-                  max-w-[70%] px-5 py-3 rounded-3xl
+                  px-5 py-3 rounded-3xl max-w-[70%]
                   ${isUser
                     ? 'bg-blue-600 text-white rounded-br-none'
                     : 'bg-gray-200 text-gray-900 rounded-bl-none'}
@@ -82,6 +110,7 @@ export default function Home() {
                   shadow
                 `}
               >
+                {!isUser && renderAgentLabel(msg.agent)}
                 {msg.content}
               </div>
             </div>

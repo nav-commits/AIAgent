@@ -7,41 +7,78 @@ import { HumanMessage } from "@langchain/core/messages";
 import { TavilySearchResults } from "@langchain/community/tools/tavily_search";
 import { MemorySaver } from "@langchain/langgraph";
 
-let agentMemory: MemorySaver | null = null;
+// Initialize model once (reuse for all agents)
+const llm = new ChatGroq({
+  model: "llama3-70b-8192",
+  temperature: 0,
+  apiKey: process.env.GROQ_API_KEY,
+});
+
+// Memory savers for each agent (to keep separate conversation state)
+const legalQAMemory = new MemorySaver();
+const documentMemory = new MemorySaver();
+const researchMemory = new MemorySaver();
+
+// Create agents
+
+// 1. General legal Q&A agent (no tools)
+
+const legalQAAgent = createReactAgent({
+  llm,
+  tools: [], // required even if unused
+  checkpointSaver: legalQAMemory,
+});
+
+// 2. Document assistant agent (no tools or customize as needed)
+const documentAgent = createReactAgent({
+  llm,
+  tools: [], // required even if unused
+  checkpointSaver: documentMemory,
+});
+
+
+// 3. Research agent with search tools
+const researchAgent = createReactAgent({
+  llm,
+  tools: [new TavilySearchResults({ maxResults: 5 })],
+  checkpointSaver: researchMemory,
+});
+
+// Simple routing logic
+function routeAgent(input: string) {
+  const text = input.toLowerCase();
+
+  if (text.includes("document") || text.includes("form")) {
+    return documentAgent;
+  }
+
+  if (
+    text.includes("law") ||
+    text.includes("case") ||
+    text.includes("research") ||
+    text.includes("precedent")
+  ) {
+    return researchAgent;
+  }
+
+  return legalQAAgent;
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { input } = await req.json();
-    // Initialize the model (Groq using LLaMA 3)
-    const agentModel = new ChatGroq({
-      model: "llama3-70b-8192", // or "llama3-8b-8192"
-      temperature: 0,
-      apiKey: process.env.GROQ_API_KEY,
-    });
 
-    const agentTools = [new TavilySearchResults({ maxResults: 3 })];
+    const agent = routeAgent(input);
 
-    if (!agentMemory) {
-      agentMemory = new MemorySaver();
-    }
-    // Create the smart agent
-    const agent = await createReactAgent({
-      llm: agentModel,
-      tools: agentTools,
-      checkpointSaver: agentMemory,
-    });
-
-    // Call the agent with user input
     const agentState = await agent.invoke(
       { messages: [new HumanMessage(input)] },
-      { configurable: { thread_id: "groq-thread" } }
+      { configurable: { thread_id: "family-lawyer-thread" } }
     );
 
-    // Extract and return the final message
     const lastMessage =
       agentState.messages[agentState.messages.length - 1]?.content ||
-      "No reply.";
-    console.log("Agent response:", lastMessage);
+      "No reply from agent.";
+
     return NextResponse.json({ output: lastMessage });
   } catch (error) {
     console.error("Error in /api/ask:", error);
