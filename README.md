@@ -2,6 +2,12 @@
 
 This is an AI-powered multi-agent chat application built with **Next.js**, **LangChain**, and **Groq's LLaMA 3 model**. It allows users to interact with multiple specialized agents, each capable of handling different types of queries — such as legal questions, document assistance, and web research.
 
+<img width="1993" height="1153" alt="Screenshot 2025-07-16 at 11 57 34 AM" src="https://github.com/user-attachments/assets/37ecedc6-bbaa-4ddd-bf65-03928781641a" />
+<img width="1997" height="1156" alt="Screenshot 2025-07-16 at 11 57 55 AM" src="https://github.com/user-attachments/assets/0f80fc7d-ab39-4b08-9167-a86eb52fd1f7" />
+
+
+
+
 ---
 
 ## 🧩 Use Case
